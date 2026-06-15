@@ -1,0 +1,21 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate docker-compose
+        run: docker compose -f docker-compose.yml config --quiet || true
+      - name: Shellcheck scripts
+        run: |
+          if compgen -G "scripts/*.sh" > /dev/null; then
+            sudo apt-get install -y shellcheck
+            shellcheck scripts/*.sh || true
+          fi

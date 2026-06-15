@@ -1,0 +1,67 @@
+# docker-compose.yml — lakehouseit
+#
+# Status: SCAFFOLD. Service declarations are in place but not all wiring is done.
+# First working `docker compose up` lands this week — see ROADMAP.md.
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_PASSWORD: lakehouseit
+      POSTGRES_DB: appdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    command: ["postgres", "-c", "wal_level=logical"]
+
+  kafka:
+    image: confluentinc/cp-kafka:7.7.0
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://kafka:9092,CONTROLLER://kafka:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      CLUSTER_ID: lakehouseit-cluster-001
+    ports:
+      - "9092:9092"
+
+  debezium:
+    image: debezium/connect:2.7
+    depends_on:
+      - postgres
+      - kafka
+    environment:
+      BOOTSTRAP_SERVERS: kafka:9092
+      GROUP_ID: connect-cluster
+      CONFIG_STORAGE_TOPIC: connect-configs
+      OFFSET_STORAGE_TOPIC: connect-offsets
+      STATUS_STORAGE_TOPIC: connect-status
+    ports:
+      - "8083:8083"
+
+  iceberg-rest:
+    image: apache/iceberg-rest-fixture:latest
+    ports:
+      - "8181:8181"
+    environment:
+      CATALOG_WAREHOUSE: /tmp/warehouse
+    volumes:
+      - iceberg-warehouse:/tmp/warehouse
+
+  dbt:
+    image: ghcr.io/dbt-labs/dbt-duckdb:1.8.0
+    working_dir: /usr/app
+    volumes:
+      - ./dbt:/usr/app
+      - iceberg-warehouse:/tmp/warehouse:ro
+    entrypoint: ["tail", "-f", "/dev/null"]   # keep container alive; invoke dbt via `docker compose run dbt dbt run`
+
+volumes:
+  postgres-data:
+  iceberg-warehouse:
