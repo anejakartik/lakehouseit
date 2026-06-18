@@ -1,6 +1,4 @@
--- bronze__events.sql — 1:1 reflection of source events table from Iceberg
--- Placeholder: lands with full pipeline this week.
-
+-- bronze__events: 1:1 reflection of source `events` table from the lake.
 {{ config(materialized='view') }}
 
 SELECT
@@ -10,4 +8,4 @@ SELECT
     event_name,
     occurred_at,
     props
-FROM {{ source('iceberg_raw', 'events') }}
+FROM {{ source('bronze_lake', 'events') }}

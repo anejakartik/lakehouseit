@@ -1,0 +1,10 @@
+lakehouseit:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: "/warehouse/lakehouseit.duckdb"
+      threads: 4
+      external_root: "/warehouse"
+      # DuckDB's parquet reader does projection pushdown, so the bronze sources
+      # below are essentially views over the snapshotted Parquet files.

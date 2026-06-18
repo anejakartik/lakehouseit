@@ -1,7 +1,11 @@
 # docker-compose.yml — lakehouseit
 #
-# Status: SCAFFOLD. Service declarations are in place but not all wiring is done.
-# First working `docker compose up` lands this week — see ROADMAP.md.
+# Two-track pipeline:
+#   1. Batch (default for the demo):  Postgres → snapshot_to_parquet.py → warehouse/bronze/ → dbt → DuckDB
+#   2. Streaming (advanced):         Postgres → Debezium → Kafka → (consumer to Iceberg, on roadmap)
+#
+# The batch track produces the same downstream artifacts the streaming track
+# would, so dbt models build identically against either feed.
 
 services:
   postgres:
@@ -15,6 +19,48 @@ services:
       - postgres-data:/var/lib/postgresql/data
       - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     command: ["postgres", "-c", "wal_level=logical"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d appdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  seeder:
+    build:
+      context: .
+      dockerfile: scripts/Dockerfile
+    command: ["scripts/seed_postgres.py"]
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: lakehouseit
+      POSTGRES_DB: appdb
+    depends_on:
+      postgres:
+        condition: service_healthy
+    profiles: ["seed", "all"]
+    restart: "no"
+
+  snapshotter:
+    build:
+      context: .
+      dockerfile: scripts/Dockerfile
+    command: ["scripts/snapshot_to_parquet.py"]
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: lakehouseit
+      POSTGRES_DB: appdb
+      LAKEHOUSEIT_WAREHOUSE: /warehouse
+    volumes:
+      - warehouse:/warehouse
+    depends_on:
+      postgres:
+        condition: service_healthy
+    profiles: ["snapshot", "all"]
+    restart: "no"
 
   kafka:
     image: confluentinc/cp-kafka:7.7.0
@@ -30,6 +76,7 @@ services:
       CLUSTER_ID: lakehouseit-cluster-001
     ports:
       - "9092:9092"
+    profiles: ["streaming", "all"]
 
   debezium:
     image: debezium/connect:2.7
@@ -42,8 +89,12 @@ services:
       CONFIG_STORAGE_TOPIC: connect-configs
       OFFSET_STORAGE_TOPIC: connect-offsets
       STATUS_STORAGE_TOPIC: connect-status
+      CONFIG_STORAGE_REPLICATION_FACTOR: 1
+      OFFSET_STORAGE_REPLICATION_FACTOR: 1
+      STATUS_STORAGE_REPLICATION_FACTOR: 1
     ports:
       - "8083:8083"
+    profiles: ["streaming", "all"]
 
   iceberg-rest:
     image: apache/iceberg-rest-fixture:latest
@@ -53,15 +104,20 @@ services:
       CATALOG_WAREHOUSE: /tmp/warehouse
     volumes:
       - iceberg-warehouse:/tmp/warehouse
+    profiles: ["streaming", "all"]
 
   dbt:
     image: ghcr.io/dbt-labs/dbt-duckdb:1.8.0
     working_dir: /usr/app
+    environment:
+      DBT_PROFILES_DIR: /usr/app
     volumes:
       - ./dbt:/usr/app
-      - iceberg-warehouse:/tmp/warehouse:ro
-    entrypoint: ["tail", "-f", "/dev/null"]   # keep container alive; invoke dbt via `docker compose run dbt dbt run`
+      - warehouse:/warehouse
+    # Keep the container alive so you can `docker compose exec dbt dbt run`.
+    entrypoint: ["tail", "-f", "/dev/null"]
 
 volumes:
   postgres-data:
+  warehouse:
   iceberg-warehouse:

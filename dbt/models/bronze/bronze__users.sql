@@ -1,6 +1,4 @@
--- bronze__users.sql — 1:1 reflection of source users table from Iceberg
--- Placeholder: lands with full pipeline this week.
-
+-- bronze__users: 1:1 reflection of source `users` table from the lake.
 {{ config(materialized='view') }}
 
 SELECT
@@ -8,4 +6,4 @@ SELECT
     email,
     signup_at,
     plan
-FROM {{ source('iceberg_raw', 'users') }}
+FROM {{ source('bronze_lake', 'users') }}
