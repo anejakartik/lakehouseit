@@ -7,10 +7,11 @@ sources:
       written under /warehouse/bronze/<table>/data.parquet by scripts/snapshot_to_parquet.py.
       In a streaming setup this same layer is fed by the Debezium → Kafka → consumer path.
     meta:
-      external_location: "/warehouse/bronze"
+      # dbt-duckdb expands {name} to the table identifier at compile time and
+      # rewrites refs as `read_parquet('<external_location>')`.
+      external_location: "/warehouse/bronze/{name}/data.parquet"
     tables:
       - name: users
-        identifier: "read_parquet('/warehouse/bronze/users/data.parquet')"
         columns:
           - name: id
             description: User UUID
@@ -18,8 +19,5 @@ sources:
           - name: signup_at
           - name: plan
       - name: orgs
-        identifier: "read_parquet('/warehouse/bronze/orgs/data.parquet')"
       - name: subscriptions
-        identifier: "read_parquet('/warehouse/bronze/subscriptions/data.parquet')"
       - name: events
-        identifier: "read_parquet('/warehouse/bronze/events/data.parquet')"

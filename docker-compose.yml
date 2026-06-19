@@ -14,7 +14,7 @@ services:
       POSTGRES_PASSWORD: lakehouseit
       POSTGRES_DB: appdb
     ports:
-      - "5432:5432"
+      - "${LAKEHOUSEIT_PG_PORT:-5432}:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
@@ -75,7 +75,7 @@ services:
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       CLUSTER_ID: lakehouseit-cluster-001
     ports:
-      - "9092:9092"
+      - "${LAKEHOUSEIT_KAFKA_PORT:-9092}:9092"
     profiles: ["streaming", "all"]
 
   debezium:
@@ -93,13 +93,13 @@ services:
       OFFSET_STORAGE_REPLICATION_FACTOR: 1
       STATUS_STORAGE_REPLICATION_FACTOR: 1
     ports:
-      - "8083:8083"
+      - "${LAKEHOUSEIT_CONNECT_PORT:-8083}:8083"
     profiles: ["streaming", "all"]
 
   iceberg-rest:
     image: apache/iceberg-rest-fixture:latest
     ports:
-      - "8181:8181"
+      - "${LAKEHOUSEIT_ICEBERG_PORT:-8181}:8181"
     environment:
       CATALOG_WAREHOUSE: /tmp/warehouse
     volumes:
@@ -107,7 +107,9 @@ services:
     profiles: ["streaming", "all"]
 
   dbt:
-    image: ghcr.io/dbt-labs/dbt-duckdb:1.8.0
+    build:
+      context: ./dbt
+    image: lakehouseit-dbt:latest
     working_dir: /usr/app
     environment:
       DBT_PROFILES_DIR: /usr/app
