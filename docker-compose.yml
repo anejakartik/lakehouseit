@@ -106,6 +106,25 @@ services:
       - iceberg-warehouse:/tmp/warehouse
     profiles: ["streaming", "all"]
 
+  consumer:
+    build:
+      context: .
+      dockerfile: scripts/Dockerfile
+    command: ["scripts/stream_consumer.py"]
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      DEBEZIUM_TOPIC_PREFIX: lakehouseit
+      LAKEHOUSEIT_WAREHOUSE: /warehouse
+      CONSUMER_GROUP_ID: lakehouseit-consumer
+      CONSUMER_FLUSH_INTERVAL: "5"
+      CONSUMER_FLUSH_MAX_BATCH: "200"
+    volumes:
+      - warehouse:/warehouse
+    depends_on:
+      - kafka
+    profiles: ["streaming", "all"]
+    restart: unless-stopped
+
   dbt:
     build:
       context: ./dbt

@@ -26,7 +26,7 @@ End-to-end batch pipeline runs via a single `make demo`:
 - **Bronze snapshot** — `scripts/snapshot_to_parquet.py` reads from Postgres via DuckDB's `postgres` extension and writes Iceberg-style Parquet layout under `warehouse/bronze/<table>/data.parquet`
 - **dbt project** — 4 bronze (passthrough views), 2 silver (cleaned/enriched), 4 gold (DAU, WAU by plan, MRR by plan, monthly churn) all materializing into a single DuckDB file
 - **Query layer** — `scripts/query.sh` runs sample analytics against the gold layer; matching `.sql` for `docker compose exec dbt duckdb` invocations
-- **Streaming track scaffolded** — Kafka + Debezium + Iceberg-REST containers declared under the `streaming` Compose profile; `scripts/register_debezium.sh` registers a Postgres→Kafka connector for the four source tables
+- **Streaming track working end-to-end** — Kafka + Debezium + a Python stream consumer all under the `streaming` Compose profile. CDC events land in `warehouse/bronze/<table>/stream-<ts>.parquet` and dbt is feed-agnostic between batch and streaming paths.
 
 ## Try it (60 seconds, local)
 
@@ -52,7 +52,9 @@ warehouse/
 Optional streaming track:
 
 ```bash
-make streaming-up   # starts kafka + debezium + iceberg-rest, registers the CDC connector
+make streaming-up   # starts kafka + debezium + iceberg-rest + consumer, registers CDC connector
+docker compose logs -f consumer   # watch streaming flush events
+# Update some Postgres rows → re-run `make build` → updates surface in gold tables
 ```
 
 ## Architecture

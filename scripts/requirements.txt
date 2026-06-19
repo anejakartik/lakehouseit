@@ -1,2 +1,4 @@
 psycopg2-binary==2.9.9
 duckdb==1.1.1
+kafka-python==2.0.2
+pyarrow==17.0.0

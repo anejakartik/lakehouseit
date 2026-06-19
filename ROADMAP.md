@@ -2,6 +2,15 @@
 
 ## Shipping log (newest on top)
 
+### 2026-06-19 — Streaming track closes the loop
+- [x] `scripts/stream_consumer.py` — kafka-python KafkaConsumer subscribed to `lakehouseit.public.{users,orgs,subscriptions,events}`
+- [x] Parses Debezium envelopes (op c/u/r/d → after / before payloads); emits tombstones with `_op='d'` so silver can dedupe
+- [x] Each flush writes a fresh Parquet file under `warehouse/bronze/<table>/stream-<ts>.parquet` — multi-file glob in dbt sources picks them up alongside the snapshot file
+- [x] `sources.yml` switched to `external_location: /warehouse/bronze/{name}/*.parquet` so dbt is feed-agnostic
+- [x] `consumer` Compose service added under `streaming` profile; auto-commit + auto-offset-reset=earliest for reliable restart semantics
+- [x] `make streaming-up` orchestrates kafka + debezium + iceberg-rest + consumer, then registers the CDC connector
+- Notes: tombstones flow through but silver doesn't filter them yet — that's the next item.
+
 ### 2026-06-17 — End-to-end batch pipeline + streaming scaffold
 - [x] `docker compose up postgres dbt` healthy + `make` orchestration
 - [x] Seed data generator — `scripts/seed_postgres.py` deterministically inserts ~200 users / 60 orgs / ~150 subscriptions / ~24K events
@@ -22,7 +31,8 @@
 
 ## Short-term — next 4 weeks
 
-- [ ] **P0 / Kafka → Iceberg sink** — close the streaming loop so the streaming track actually feeds bronze (currently it just produces CDC events)
+- [ ] **P0 / Silver tombstone filtering** — silver layer should respect `_op='d'` markers from the streaming consumer and exclude deleted rows
+- [ ] **P0 / Real Iceberg writer** — graduate from Parquet glob to PyIceberg writer against the iceberg-rest catalog for proper schema evolution + table snapshots
 - [ ] **P0 / Great Expectations gates** — null checks, schema evolution checks, freshness checks between bronze and silver
 - [ ] **P0 / Screen recording** — 60-second `make demo` walkthrough (top of the README)
 - [ ] **P1 / GitHub Codespace template** — one-click launch via codespaces

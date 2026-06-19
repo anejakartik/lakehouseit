@@ -36,10 +36,14 @@ query: build
 	@echo "Or from the host: ./scripts/query.sh"
 
 streaming-up:
-	docker compose --profile streaming up -d kafka debezium iceberg-rest
-	@echo "→ waiting 10s for Debezium to settle…"
-	@sleep 10
+	docker compose --profile streaming up -d --build kafka debezium iceberg-rest consumer
+	@echo "→ waiting 15s for Debezium + consumer to settle…"
+	@sleep 15
 	CONNECT_URL=http://localhost:8083 ./scripts/register_debezium.sh
+	@echo ""
+	@echo "✓ streaming track up."
+	@echo "  Tail the consumer:    docker compose logs -f consumer"
+	@echo "  Re-run dbt to ingest: make build"
 
 demo: query
 	@echo ""

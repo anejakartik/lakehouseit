@@ -8,8 +8,11 @@ sources:
       In a streaming setup this same layer is fed by the Debezium → Kafka → consumer path.
     meta:
       # dbt-duckdb expands {name} to the table identifier at compile time and
-      # rewrites refs as `read_parquet('<external_location>')`.
-      external_location: "/warehouse/bronze/{name}/data.parquet"
+      # rewrites refs as `read_parquet('<external_location>')`. The glob picks
+      # up both the one-shot snapshot file (data.parquet) and any streaming
+      # flush files (stream-<ts>.parquet) — dbt is feed-agnostic between the
+      # batch and streaming tracks.
+      external_location: "/warehouse/bronze/{name}/*.parquet"
     tables:
       - name: users
         columns:
