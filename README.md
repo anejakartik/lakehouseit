@@ -17,6 +17,12 @@ You're a Data Engineer at an early-stage startup. You want the modern stack (Ice
 
 See [PRODUCT.md](./PRODUCT.md) for the full writeup.
 
+## Demo
+
+`make demo` runs the full path — seed Postgres → snapshot to bronze Parquet → build silver + gold dbt models → query gold-layer tables from DuckDB:
+
+![lakehouseit — full pipeline run from seed through gold-layer queries](./docs/screenshots/01-pipeline-run.png)
+
 ## What works today (alpha MVP)
 
 End-to-end batch pipeline runs via a single `make demo`:
